@@ -31,7 +31,7 @@ pool:
 variables:
   NODE_VERSION: '20.x'
   APP_DIR: 'prerequisito/app-tienda'      # carpeta de la app
-  TEST_DIR: 'pruebas/tienda-azure'  # carpeta de las pruebas
+  TEST_DIR: 'pruebas/test'  # carpeta de las pruebas
   BASE_URL: 'http://localhost:3000'
 
 stages:
