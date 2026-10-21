@@ -30,7 +30,7 @@ class ProductosVisibles:
         return ProductosVisibles()
 
     def responder_como(self, actor) -> int:
-        return _page(actor).locator('[data-testid="grid-productos"] .card').count()
+        return _page(actor).locator('[data-testid="lista-productos"] .card').count()
 
 
 class CategoriasVisibles:
@@ -41,7 +41,7 @@ class CategoriasVisibles:
         return CategoriasVisibles()
 
     def responder_como(self, actor) -> list[str]:
-        tarjetas = _page(actor).locator('[data-testid="grid-productos"] .card')
+        tarjetas = _page(actor).locator('[data-testid="lista-productos"] .card')
         n = tarjetas.count()
         return [tarjetas.nth(i).get_attribute("data-categoria") for i in range(n)]
 

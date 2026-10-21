@@ -15,7 +15,7 @@ class AbrirElCatalogo:
         actor.intenta(Abrir.la_pagina("/"))
         # Esperar a que el grid tenga al menos un producto
         page = actor.habilidad(NavegarConElNavegador).page
-        page.wait_for_selector('[data-testid="grid-productos"] .card', timeout=10000)
+        page.wait_for_selector('[data-testid="lista-productos"] .card', timeout=10000)
 
 
 class FiltrarPorCategoria:
