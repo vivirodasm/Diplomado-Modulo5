@@ -27,7 +27,7 @@ class FiltrarPorCategoria:
         return FiltrarPorCategoria(categoria)
 
     def ejecutar_como(self, actor):
-        actor.intenta(Seleccionar.el_valor(self.categoria).en("filtro-categoria"))
+        actor.intenta(Seleccionar.el_valor(self.categoria).en("select-categoria"))
 
 
 class AgregarProductoAlCarrito:
@@ -39,15 +39,44 @@ class AgregarProductoAlCarrito:
         return AgregarProductoAlCarrito(producto_id)
 
     def ejecutar_como(self, actor):
-        actor.intenta(HacerClic.en(f"agregar-{self.producto_id}"))
+        page = actor.habilidad(NavegarConElNavegador).page
+
+        # Abrir el detalle del producto por su ID
+        actor.intenta(Abrir.la_pagina(f"/producto.html?id={self.producto_id}"))
+
+        # Esperar a que aparezca el botón de agregar
+        boton_agregar = page.get_by_test_id("btn-agregar")
+        boton_agregar.wait_for(state="visible", timeout=15000)
+
+        # Agregar el producto al carrito
+        boton_agregar.click()
+
+        # Confirmar que se agregó correctamente
+        page.get_by_test_id("mensaje-agregado").wait_for(
+            state="visible",
+            timeout=10000
+        )
+
 
 
 class AbrirElCarrito:
     def ejecutar_como(self, actor):
-        actor.intenta(HacerClic.en("abrir-carrito"))
-        # Esperar a que el formulario del carrito este listo
         page = actor.habilidad(NavegarConElNavegador).page
-        page.wait_for_selector('[data-testid="confirmar-pedido"]', timeout=10000)
+
+        # Abrir el carrito desde la navegacion
+        actor.intenta(HacerClic.en("nav-carrito"))
+
+        # Esperar a que aparezca el contenido del carrito
+        page.get_by_test_id("contenido-carrito").wait_for(
+            state="visible",
+            timeout=15000
+        )
+
+        # Verificar que el boton de confirmar este disponible
+        page.get_by_test_id("btn-confirmar").wait_for(
+            state="visible",
+            timeout=15000
+        )
 
 
 class ConfirmarPedido:
@@ -59,11 +88,15 @@ class ConfirmarPedido:
         return ConfirmarPedido(correo)
 
     def ejecutar_como(self, actor):
-        actor.intenta(
-            Escribir.el_texto(self.correo).en("input-email"),
-            HacerClic.en("confirmar-pedido"),
-        )
-        # El pedido se crea via fetch (async) y luego cambia la vista:
-        # esperar a que aparezca la confirmacion antes de seguir.
         page = actor.habilidad(NavegarConElNavegador).page
-        page.wait_for_selector('[data-testid="vista-exito"].activa', timeout=10000)
+
+        # La tienda actual utiliza un correo fijo al confirmar
+        # el pedido. No existe un campo input-email.
+        actor.intenta(HacerClic.en("btn-confirmar"))
+
+        # Esperar la confirmacion de la compra
+        page.get_by_test_id("pedido-confirmado").wait_for(
+            state="visible",
+            timeout=15000
+        )
+

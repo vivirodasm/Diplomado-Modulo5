@@ -1,20 +1,17 @@
-# Caso de la suite "Carrito" de Azure Test Plans (Dia 3).
-# Palabras clave en ingles (Gherkin), texto de los pasos en espanol.
+
+# Casos de la suite Carrito de Azure Test Plans.
 Feature: Agregar productos al carrito
   Como cliente de la tienda
   quiero agregar productos al carrito
   para comprarlos despues
 
-  # @TC19 = ID del Test Case en Azure Test Plans (enlaza el resultado al caso).
-  @carrito @smoke @TC19
+  @carrito @smoke @TC7
   Scenario: Agregar un producto al carrito
     Given que abro la home de la tienda
     When agrego el producto 1 al carrito
     Then el contador del carrito muestra 1
 
-  # Este escenario NO tiene un Test Case propio en Azure Test Plans.
-  # Si creas uno, agrega su tag @TC<id> aqui para que tambien se publique.
-  @carrito
+  @carrito @TC13
   Scenario: Agregar dos productos distintos al carrito
     Given que abro la home de la tienda
     When agrego el producto 1 al carrito

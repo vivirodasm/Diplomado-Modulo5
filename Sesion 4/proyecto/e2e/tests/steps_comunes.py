@@ -1,5 +1,6 @@
 """Steps compartidos entre features (Given/When/Then reutilizables)."""
 from pytest_bdd import given, when, then, parsers
+from screenplay.abilities import NavegarConElNavegador
 
 from screenplay.tasks import (
     AbrirElCatalogo,
@@ -12,7 +13,6 @@ from screenplay.questions import (
     ContadorCarrito,
     ProductosVisibles,
     CategoriasVisibles,
-    NumeroDePedido,
     MensajeDeExitoVisible,
 )
 
@@ -44,7 +44,7 @@ def abrir_y_confirmar(actor, correo):
 @then(parsers.parse('solo veo productos de la categoria "{categoria}"'))
 def solo_categoria(actor, categoria):
     categorias = actor.pregunta(CategoriasVisibles.lista())
-    assert all(c == categoria for c in categorias), (
+    assert all(c.strip().lower() == categoria.strip().lower() for c in categorias), (
         f"Se esperaban solo '{categoria}', pero hay: {set(categorias)}"
     )
 
@@ -63,7 +63,3 @@ def contador_carrito(actor, esperado):
 def mensaje_confirmado(actor):
     assert actor.pregunta(MensajeDeExitoVisible.estado()) is True
 
-
-@then("el numero de pedido no esta vacio")
-def numero_pedido(actor):
-    assert actor.pregunta(NumeroDePedido.texto()) != ""

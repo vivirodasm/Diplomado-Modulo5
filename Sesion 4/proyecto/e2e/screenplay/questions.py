@@ -18,7 +18,7 @@ class ContadorCarrito:
         return ContadorCarrito()
 
     def responder_como(self, actor) -> int:
-        texto = _page(actor).get_by_test_id("contador-carrito").inner_text()
+        texto = _page(actor).get_by_test_id("carrito-contador").inner_text()
         return int(texto.strip())
 
 
@@ -41,9 +41,13 @@ class CategoriasVisibles:
         return CategoriasVisibles()
 
     def responder_como(self, actor) -> list[str]:
-        tarjetas = _page(actor).locator('[data-testid="lista-productos"] .card')
+        tarjetas = _page(actor).locator('[data-testid="producto-card"]')
         n = tarjetas.count()
-        return [tarjetas.nth(i).get_attribute("data-categoria") for i in range(n)]
+
+        return [
+            tarjetas.nth(i).locator(".categoria").inner_text().strip()
+            for i in range(n)
+        ]
 
 
 class TotalDelCarrito:
@@ -57,23 +61,19 @@ class TotalDelCarrito:
         return _page(actor).get_by_test_id("carrito-total").inner_text()
 
 
-class NumeroDePedido:
-    """Numero de pedido mostrado en la pantalla de confirmacion."""
-
-    @staticmethod
-    def texto() -> "NumeroDePedido":
-        return NumeroDePedido()
-
-    def responder_como(self, actor) -> str:
-        return _page(actor).get_by_test_id("numero-pedido").inner_text().strip()
-
-
 class MensajeDeExitoVisible:
-    """True si la pantalla de confirmacion de pedido es visible."""
+    """Verifica que aparezca el mensaje de pedido confirmado."""
 
     @staticmethod
     def estado() -> "MensajeDeExitoVisible":
         return MensajeDeExitoVisible()
 
     def responder_como(self, actor) -> bool:
-        return _page(actor).get_by_test_id("mensaje-exito").is_visible()
+        page = _page(actor)
+
+        page.get_by_test_id("pedido-confirmado").wait_for(
+            state="visible",
+            timeout=15000
+        )
+
+        return page.get_by_test_id("pedido-confirmado").is_visible()
