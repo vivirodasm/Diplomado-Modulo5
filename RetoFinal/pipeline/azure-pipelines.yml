@@ -1,0 +1,100 @@
+
+trigger:
+  branches:
+    include:
+      - reto-practico-modulo5
+  paths:
+    include:
+      - RetoFinal/**
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    displayName: Build
+    jobs:
+      - job: Instalar
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+            displayName: Instalar Node.js
+
+          - script: npm ci
+            workingDirectory: RetoFinal/app-tienda
+            displayName: Instalar dependencias y generar datos
+
+  - stage: SmokeTests
+    displayName: SmokeTests
+    dependsOn: Build
+    jobs:
+      - job: Smoke
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+
+          - script: |
+              npm ci
+              npm start > tienda.log 2>&1 &
+              echo $! > tienda.pid
+            workingDirectory: RetoFinal/app-tienda
+            displayName: Iniciar tienda
+
+          - script: |
+              for i in $(seq 1 30); do
+                if curl -fsS http://localhost:3000/api/health; then
+                  echo "Tienda lista"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "ERROR: La tienda no inicio"
+              exit 1
+            displayName: Esperar Health Check
+          - script: node pipeline/scripts/smoke-tests.js
+            workingDirectory: RetoFinal
+            displayName: Ejecutar pruebas Smoke
+
+  - stage: LoadTest
+    displayName: LoadTest
+    dependsOn: SmokeTests
+    jobs:
+      - job: Carga
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+
+          - script: |
+              npm ci
+              npm start > tienda.log 2>&1 &
+            workingDirectory: RetoFinal/app-tienda
+            displayName: Iniciar tienda
+
+          - script: |
+              sudo apt-get update
+              sudo apt-get install -y gnupg ca-certificates
+              sudo gpg -k
+              sudo mkdir -p /etc/apt/keyrings
+              curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/k6-archive-keyring.gpg
+              echo "deb [signed-by=/etc/apt/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+              sudo apt-get update
+              sudo apt-get install -y k6
+            displayName: Instalar k6
+
+          - script: |
+              for i in $(seq 1 30); do
+                if curl -fsS http://localhost:3000/api/health; then
+                  echo "Tienda lista"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "ERROR: La tienda no inicio"
+              exit 1
+            displayName: Esperar Health Check
+          - script: k6 run pipeline/scripts/load-test.js
+            workingDirectory: RetoFinal
+            displayName: Quality Gate de carga
