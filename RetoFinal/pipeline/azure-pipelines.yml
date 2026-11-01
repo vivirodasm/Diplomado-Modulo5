@@ -193,7 +193,8 @@ stages:
           - script: |
               curl -fL -o sauce-connect.deb https://saucelabs.com/downloads/sauce-connect/5.5.4/sauce-connect_5.5.4.linux_amd64.deb
               sudo dpkg -i sauce-connect.deb
-              sauce-connect version
+              dpkg -L sauce-connect | grep -E '/(bin|sbin)/'
+              command -v sauce-connect || true
             displayName: Instalar Sauce Connect
 
           - script: |
