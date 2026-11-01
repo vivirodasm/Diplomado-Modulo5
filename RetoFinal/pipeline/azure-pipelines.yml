@@ -155,7 +155,6 @@ stages:
               failTaskOnFailedTests: true
             displayName: Publicar resultados JUnit
 
-  
   - stage: SauceLabs
     displayName: Prueba remota Sauce Labs
     dependsOn: E2ETests
@@ -176,6 +175,7 @@ stages:
             displayName: Configurar Node.js
 
           - script: |
+              set -e
               python -m pip install selenium==4.52.0
               npm ci
               npm start > tienda.log 2>&1 &
@@ -205,23 +205,34 @@ stages:
           - script: |
               set -e
 
-              echo "Iniciando Sauce Connect..."
-              /usr/bin/sc run --region us-west --tunnel-name reto-final-modulo5 --proxy-localhost allow > sauce-connect.log 2>&1 &
+              export SAUCE_TUNNEL_NAME="reto-final-${BUILD_BUILDID}"
+
+              echo "Iniciando tunel: ${SAUCE_TUNNEL_NAME}"
+
+              /usr/bin/sc run \
+                --region us-west \
+                --tunnel-name "${SAUCE_TUNNEL_NAME}" \
+                --proxy-localhost allow \
+                --api-address 127.0.0.1:8032 \
+                > sauce-connect.log 2>&1 &
+
               SC_PID=$!
 
               trap 'kill "$SC_PID" 2>/dev/null || true' EXIT
 
-              echo "Esperando disponibilidad del tunel..."
+              echo "Esperando disponibilidad real del tunel..."
               READY=0
 
-              for i in $(seq 1 60); do
+              for i in $(seq 1 90); do
                 if ! kill -0 "$SC_PID" 2>/dev/null; then
                   echo "ERROR: Sauce Connect termino inesperadamente"
                   tail -n 40 sauce-connect.log
                   exit 1
                 fi
 
-                if grep -qi "you may start your tests" sauce-connect.log; then
+                HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8032/readyz || true)
+
+                if [ "$HTTP_CODE" = "200" ]; then
                   READY=1
                   break
                 fi
@@ -230,12 +241,59 @@ stages:
               done
 
               if [ "$READY" -ne 1 ]; then
-                echo "ERROR: Sauce Connect no estuvo listo"
+                echo "ERROR: El tunel no alcanzo estado READY"
                 tail -n 40 sauce-connect.log
                 exit 1
               fi
 
-              echo "Sauce Connect listo. Ejecutando Selenium..."
+              echo "Tunel READY. Verificando registro en Sauce Labs..."
+
+              python - <<'PY'
+              import json
+              import os
+              import time
+              import urllib.request
+              from urllib.parse import quote
+
+              user = os.environ["SAUCE_USERNAME"]
+              key = os.environ["SAUCE_ACCESS_KEY"]
+              name = os.environ["SAUCE_TUNNEL_NAME"]
+
+              import base64
+              token = base64.b64encode(f"{user}:{key}".encode()).decode()
+              url = (
+                  "https://api.us-west-1.saucelabs.com/rest/v1/"
+                  + quote(user, safe="")
+                  + "/tunnels?full=true"
+              )
+
+              found = False
+              for attempt in range(30):
+                  req = urllib.request.Request(
+                      url,
+                      headers={"Authorization": f"Basic {token}"}
+                  )
+                  with urllib.request.urlopen(req, timeout=15) as response:
+                      tunnels = json.load(response)
+
+                  for tunnel in tunnels:
+                      if tunnel.get("tunnel_identifier") == name and tunnel.get("is_ready") is True:
+                          found = True
+                          break
+
+                  if found:
+                      print(f"Tunel registrado y listo: {name}")
+                      break
+
+                  time.sleep(2)
+
+              if not found:
+                  raise SystemExit(
+                      f"ERROR: Sauce Labs no confirma el tunel {name} como disponible"
+                  )
+              PY
+
+              echo "Ejecutando Selenium..."
               python cloud/sauce_remote_smoke.py
 
               echo "Prueba remota Selenium finalizada correctamente"
