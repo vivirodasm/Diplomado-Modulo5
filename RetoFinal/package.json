@@ -2,5 +2,8 @@
   "dependencies": {
     "@faker-js/faker": "^10.6.0"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@pact-foundation/pact": "^17.1.4"
+  }
 }

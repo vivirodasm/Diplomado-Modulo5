@@ -1,38 +1,41 @@
+
 # ============================================================
-# Dockerfile - App Tienda (front + API)
-# ------------------------------------------------------------
-# Imagen ligera basada en Node 20. Construye la app en un solo
-# contenedor que sirve el front estatico y la API en el mismo puerto.
-#
-# Construir:   docker build -t app-tienda .
-# Correr:      docker run -p 3000:3000 app-tienda
+# Dockerfile - Reto Final Modulo 5
+# Tienda QA - Frontend + API + Datos Faker
+# Compatible con Docker y Podman
 # ============================================================
+
+# 1. Imagen base Node.js 20 Alpine
 FROM node:20-alpine
 
-# Directorio de trabajo dentro del contenedor
+# 2. Directorio de trabajo
 WORKDIR /app
 
-# 1) Copiar solo package.json primero (mejor cache de capas):
-#    si el codigo cambia pero las deps no, no reinstala.
+# 3. Copiar archivos de dependencias
 COPY package*.json ./
 
-# 2) Instalar dependencias de produccion.
-#    El "postinstall" genera datos/db.json con Faker automaticamente.
+# 4. Copiar el generador de datos antes de npm install
+# Necesario porque postinstall ejecuta generar-datos.js
+COPY datos/generar-datos.js ./datos/generar-datos.js
+
+# 5. Instalar dependencias de produccion
 RUN npm install --omit=dev
 
-# 3) Copiar el resto del proyecto (servidor + front + datos).
+# 6. Copiar frontend, servidor y demas archivos
 COPY . .
 
-# 4) Regenerar los datos por si el COPY trajo un db.json viejo o ninguno.
+# 7. Regenerar el catalogo con Faker
 RUN node datos/generar-datos.js
 
-# La app escucha en el puerto 3000 (configurable con la variable PORT).
+# 8. Configurar puerto de la aplicacion
 ENV PORT=3000
+
+# 9. Exponer puerto HTTP
 EXPOSE 3000
 
-# Healthcheck: Docker marca el contenedor "healthy" si la API responde.
+# 10. Healthcheck de la API
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+    CMD wget -qO- http://localhost:3000/api/health || exit 1
 
-# Arrancar el servidor
+# 11. Iniciar servidor de Tienda QA
 CMD ["node", "servidor/server.js"]
