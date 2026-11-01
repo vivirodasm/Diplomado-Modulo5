@@ -155,3 +155,76 @@ stages:
               failTaskOnFailedTests: true
             displayName: Publicar resultados JUnit
 
+  - stage: SauceLabs
+    displayName: Prueba remota Sauce Labs
+    dependsOn: E2ETests
+    jobs:
+      - job: EjecutarSauceLabs
+        displayName: Selenium + Sauce Connect
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+            displayName: Configurar Python
+
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+            displayName: Configurar Node.js
+
+          - script: |
+              python -m pip install selenium==4.52.0
+              npm ci
+              npm start > tienda.log 2>&1 &
+            workingDirectory: RetoFinal/app-tienda
+            displayName: Instalar dependencias e iniciar Tienda QA
+
+          - script: |
+              for i in $(seq 1 30); do
+                if curl -fsS http://127.0.0.1:3000/api/health; then
+                  echo "Tienda QA lista"
+                  exit 0
+                fi
+                sleep 2
+              done
+              exit 1
+            displayName: Esperar Tienda QA
+
+          - script: |
+              curl -fL -o sauce-connect.deb https://saucelabs.com/downloads/sauce-connect/5.5.4/sauce-connect_5.5.4.linux_amd64.deb
+              sudo dpkg -i sauce-connect.deb
+              sauce-connect version
+            displayName: Instalar Sauce Connect
+
+          - script: |
+              sauce-connect run --region us-west --tunnel-name reto-final-modulo5 --proxy-localhost allow > sauce-connect.log 2>&1 &
+              echo $! > sauce-connect.pid
+
+              for i in $(seq 1 60); do
+                if grep -q "you may start your tests" sauce-connect.log; then
+                  echo "Sauce Connect listo"
+                  exit 0
+                fi
+                if ! kill -0 $(cat sauce-connect.pid) 2>/dev/null; then
+                  cat sauce-connect.log
+                  exit 1
+                fi
+                sleep 2
+              done
+
+              cat sauce-connect.log
+              exit 1
+            workingDirectory: RetoFinal
+            displayName: Iniciar túnel Sauce Connect
+            env:
+              SAUCE_USERNAME: $(SAUCE_USERNAME)
+              SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
+
+          - script: python cloud/sauce_remote_smoke.py
+            workingDirectory: RetoFinal
+            displayName: Ejecutar prueba remota Selenium
+            env:
+              SAUCE_USERNAME: $(SAUCE_USERNAME)
+              SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
+
+
