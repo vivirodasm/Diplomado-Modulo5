@@ -155,12 +155,15 @@ stages:
               failTaskOnFailedTests: true
             displayName: Publicar resultados JUnit
 
+  
   - stage: SauceLabs
     displayName: Prueba remota Sauce Labs
     dependsOn: E2ETests
     jobs:
       - job: EjecutarSauceLabs
         displayName: Selenium + Sauce Connect
+        pool:
+          vmImage: ubuntu-latest
         steps:
           - task: UsePythonVersion@0
             inputs:
@@ -187,45 +190,58 @@ stages:
                 fi
                 sleep 2
               done
+              echo "ERROR: Tienda QA no responde"
               exit 1
             displayName: Esperar Tienda QA
 
           - script: |
+              set -e
               curl -fL -o sauce-connect.deb https://saucelabs.com/downloads/sauce-connect/5.5.4/sauce-connect_5.5.4.linux_amd64.deb
               sudo dpkg -i sauce-connect.deb
-              dpkg -L sauce-connect | grep -E '/(bin|sbin)/'
-              command -v sauce-connect || true
+              /usr/bin/sc version
+            workingDirectory: RetoFinal
             displayName: Instalar Sauce Connect
 
           - script: |
-              sc run --region us-west --tunnel-name reto-final-modulo5 --proxy-localhost allow > sauce-connect.log 2>&1 &
-              echo $! > sauce-connect.pid
+              set -e
+
+              echo "Iniciando Sauce Connect..."
+              /usr/bin/sc run --region us-west --tunnel-name reto-final-modulo5 --proxy-localhost allow > sauce-connect.log 2>&1 &
+              SC_PID=$!
+
+              trap 'kill "$SC_PID" 2>/dev/null || true' EXIT
+
+              echo "Esperando disponibilidad del tunel..."
+              READY=0
 
               for i in $(seq 1 60); do
-                if grep -q "you may start your tests" sauce-connect.log; then
-                  echo "Sauce Connect listo"
-                  exit 0
-                fi
-                if ! kill -0 $(cat sauce-connect.pid) 2>/dev/null; then
-                  cat sauce-connect.log
+                if ! kill -0 "$SC_PID" 2>/dev/null; then
+                  echo "ERROR: Sauce Connect termino inesperadamente"
+                  tail -n 40 sauce-connect.log
                   exit 1
                 fi
+
+                if grep -qi "you may start your tests" sauce-connect.log; then
+                  READY=1
+                  break
+                fi
+
                 sleep 2
               done
 
-              cat sauce-connect.log
-              exit 1
+              if [ "$READY" -ne 1 ]; then
+                echo "ERROR: Sauce Connect no estuvo listo"
+                tail -n 40 sauce-connect.log
+                exit 1
+              fi
+
+              echo "Sauce Connect listo. Ejecutando Selenium..."
+              python cloud/sauce_remote_smoke.py
+
+              echo "Prueba remota Selenium finalizada correctamente"
+
             workingDirectory: RetoFinal
-            displayName: Iniciar túnel Sauce Connect
+            displayName: Sauce Connect + Selenium
             env:
               SAUCE_USERNAME: $(SAUCE_USERNAME)
               SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
-
-          - script: python cloud/sauce_remote_smoke.py
-            workingDirectory: RetoFinal
-            displayName: Ejecutar prueba remota Selenium
-            env:
-              SAUCE_USERNAME: $(SAUCE_USERNAME)
-              SAUCE_ACCESS_KEY: $(SAUCE_ACCESS_KEY)
-
-
