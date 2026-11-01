@@ -29,3 +29,14 @@ class ConfirmarPedido:
         actor.page.get_by_test_id("abrir-carrito").click()
         actor.page.get_by_test_id("input-email").fill(self.correo)
         actor.page.get_by_test_id("confirmar-pedido").click()
+
+
+class FiltrarPorCategoria:
+    def __init__(self, categoria):
+        self.categoria = categoria
+
+    def ejecutar(self, actor):
+        actor.page.get_by_test_id("filtro-categoria").select_option(
+            label=self.categoria
+        )
+
