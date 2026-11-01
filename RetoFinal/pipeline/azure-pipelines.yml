@@ -198,7 +198,7 @@ stages:
             displayName: Instalar Sauce Connect
 
           - script: |
-              sauce-connect run --region us-west --tunnel-name reto-final-modulo5 --proxy-localhost allow > sauce-connect.log 2>&1 &
+              sc run --region us-west --tunnel-name reto-final-modulo5 --proxy-localhost allow > sauce-connect.log 2>&1 &
               echo $! > sauce-connect.pid
 
               for i in $(seq 1 60); do
