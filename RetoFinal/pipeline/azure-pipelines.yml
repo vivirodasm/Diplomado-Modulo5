@@ -98,3 +98,60 @@ stages:
           - script: k6 run pipeline/scripts/load-test.js
             workingDirectory: RetoFinal
             displayName: Quality Gate de carga
+
+  - stage: E2ETests
+    displayName: Pruebas E2E BDD
+    dependsOn: LoadTest
+    jobs:
+      - job: EjecutarBDD
+        displayName: Playwright + Screenplay + pytest-bdd
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+            displayName: Configurar Python 3.11
+
+          - script: |
+              python -m pip install -r e2e/requirements.txt
+              python -m playwright install --with-deps chromium
+            workingDirectory: RetoFinal
+            displayName: Instalar dependencias E2E
+
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'
+            displayName: Configurar Node.js
+
+          - script: |
+              npm ci
+              npm start > tienda.log 2>&1 &
+            workingDirectory: RetoFinal/app-tienda
+            displayName: Iniciar tienda
+
+          - script: |
+              for i in $(seq 1 30); do
+                if curl -fsS http://localhost:3000/api/health; then
+                  echo "Tienda lista"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "ERROR: La tienda no inicio"
+              exit 1
+            displayName: Esperar tienda
+
+          - script: |
+              mkdir -p e2e/resultados
+              python -m pytest e2e -v --junitxml=e2e/resultados/junit.xml
+            workingDirectory: RetoFinal
+            displayName: Ejecutar escenarios BDD
+
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'RetoFinal/e2e/resultados/junit.xml'
+              testRunTitle: 'Reto Final - Pruebas BDD Playwright'
+              failTaskOnFailedTests: true
+            displayName: Publicar resultados JUnit
+

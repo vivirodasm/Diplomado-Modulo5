@@ -1,2 +1,11 @@
 node_modules/
 datos/db.json
+
+# Entorno virtual de Python
+.venv/
+
+# Archivos temporales de pruebas
+__pycache__/
+.pytest_cache/
+*.pyc
+e2e/resultados/
